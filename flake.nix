@@ -1,5 +1,5 @@
 {
-  description = "A Nix-flake-based Rust development environment";
+  description = "A high-performance CLI tool for password hashing generation and verification";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,8 +10,7 @@
   };
 
   outputs =
-    { self, ... }@inputs:
-
+    { self, nixpkgs, fenix, ... }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -21,14 +20,17 @@
       ];
       forEachSupportedSystem =
         f:
-        inputs.nixpkgs.lib.genAttrs supportedSystems (
+        nixpkgs.lib.genAttrs supportedSystems (
           system:
-          f {
-            pkgs = import inputs.nixpkgs {
+          f rec {
+            inherit system;
+            pkgs = import nixpkgs {
               inherit system;
-              overlays = [
-                inputs.self.overlays.default
-              ];
+              overlays = [ self.overlays.default ];
+            };
+            rustPlatform = pkgs.makeRustPlatform {
+              cargo = pkgs.rustToolchain;
+              rustc = pkgs.rustToolchain;
             };
           }
         );
@@ -36,7 +38,7 @@
     {
       overlays.default = final: prev: {
         rustToolchain =
-          with inputs.fenix.packages.${prev.stdenv.hostPlatform.system};
+          with fenix.packages.${prev.stdenv.hostPlatform.system};
           combine (
             with stable;
             [
@@ -49,8 +51,33 @@
           );
       };
 
+      packages = forEachSupportedSystem (
+        { pkgs, rustPlatform, ... }:
+        {
+          default = rustPlatform.buildRustPackage {
+            pname = "salt";
+            version = "0.1.0";
+            src = ./.;
+
+            cargoLock = {
+              lockFile = ./Cargo.lock;
+            };
+
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl ];
+
+            meta = with nixpkgs.lib; {
+              description = "A high-performance CLI tool for password hashing generation and verification";
+              homepage = "https://github.com/yourname/salt";
+              license = licenses.mit;
+              mainProgram = "salt";
+            };
+          };
+        }
+      );
+
       devShells = forEachSupportedSystem (
-        { pkgs }:
+        { pkgs, ... }:
         {
           default = pkgs.mkShell {
             packages = with pkgs; [

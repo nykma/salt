@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build project (release mode)
+        run: cargo build --release
+
+      - name: Install packaging tools
+        run: |
+          cargo install cargo-deb
+          cargo install cargo-generate-rpm
+
+      - name: Create DEB package
+        run: cargo deb
+
+      - name: Create RPM package
+        run: cargo generate-rpm
+
+      - name: Create Arch Linux package
+        run: |
+          # Use docker to run makepkg in an Arch environment
+          VERSION=${GITHUB_REF_NAME#v}
+          cp target/release/salt .
+          cat > PKGBUILD <<EOF
+          pkgname=salt
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc="A high-performance CLI tool for password hashing generation and verification."
+          arch=('x86_64')
+          url="https://github.com/nykma/salt"
+          license=('MIT')
+          depends=('glibc')
+          source=("salt" "README.md")
+          sha256sums=('SKIP' 'SKIP')
+
+          package() {
+              install -Dm755 salt "\${pkgdir}/usr/bin/salt"
+              install -Dm644 README.md "\${pkgdir}/usr/share/doc/salt/README.md"
+          }
+          EOF
+          # Run makepkg as a non-root user in a container
+          docker run --rm -v $(pwd):/pkg archlinux:latest bash -c "
+            pacman -Syu --noconfirm base-devel sudo
+            useradd -m builder
+            echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+            chown -R builder:builder /pkg
+            cd /pkg
+            sudo -u builder makepkg --noconfirm
+          "
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/debian/*.deb
+            target/generate-rpm/*.rpm
+            *.pkg.tar.zst
+            PKGBUILD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
