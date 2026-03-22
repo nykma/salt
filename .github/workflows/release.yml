@@ -63,7 +63,7 @@ jobs:
           }
           EOF
           # In native ARM environment, this will pull the aarch64 Arch Linux image
-          docker run --rm -v $(pwd):/pkg archlinux:latest bash -c "
+          docker run --rm -v $(pwd):/pkg lsiobase/arch:latest bash -c "
             pacman -Syu --noconfirm base-devel sudo
             useradd -m builder
             echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
