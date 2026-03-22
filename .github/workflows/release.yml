@@ -19,7 +19,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build project (release mode)
-        run: cargo build --release
+        run: |
+          cargo build --release
+          strip -s target/release/salt
 
       - name: Install packaging tools
         run: |

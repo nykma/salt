@@ -20,17 +20,15 @@ assets = [
     ["README.md", "usr/share/doc/salt/README.md", "644"],
 ]
 
-[package.metadata.rpm]
-package = "salt"
-
-[package.metadata.rpm.cargo]
-buildflags = ["--release"]
-
-[package.metadata.rpm.targets]
-salt = { path = "/usr/bin/salt" }
-
-[package.metadata.rpm.files]
-"/usr/share/doc/salt/README.md" = { mode = "644", content = "README.md" }
+[package.metadata.generate-rpm]
+release = "1"
+vendor = "nykma"
+assets = [
+    { source = "target/release/salt", dest = "/usr/bin/salt", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/salt/README.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/salt/LICENSE", mode = "644", doc = true },
+    { source = "docs/*.md", dest = "/usr/share/doc/salt/", mode = "644", doc = true },
+]
 
 [dependencies]
 anyhow = "1.0.102"
